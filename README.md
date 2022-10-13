@@ -24,7 +24,7 @@ There are no dependencies required to build this Debian package. You simply have
 
 ```sh
 # clone the repository
-git clone https://github.com/Aisbergg/debian-package-sshd-ssh-initramfs.git
+git clone ttps://github.com/sichkarmg/debian-package-sshd-ssh-initramfs.git
 
 # build
 cd openssh-initramfs
