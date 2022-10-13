@@ -38,6 +38,7 @@ done
 [ -r /etc/crypttab ] || exit 0
 
 copy_exec /usr/sbin/sshd /sbin
+copy_exec /usr/bin/ssh /sbin
 
 # In absence of PAM, OpenSSH uses getpwnam() from libnss.
 # src.: https://serverfault.com/a/820605
@@ -45,6 +46,7 @@ LIBC_DIR=$(ldd /usr/sbin/sshd | sed -nr 's#.* => (/lib.*)/libc\.so\.[0-9.-]+ \(0
 find -L "$LIBC_DIR" -maxdepth 1 -name 'libnss_files.*' -type f | while read -r so; do
    copy_exec "$so"
 done
+
 
 # Create a specific home directory for the home user
 home=$(mktemp -d "$DESTDIR/root-XXXXXX")
