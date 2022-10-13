@@ -42,7 +42,7 @@ docker run -t --rm -v "$(pwd):/shared" -u $(id -u) debian:10 bash -c "cd /shared
 You can download a pre-built package from the [releases page](https://github.com/Aisbergg/debian-package-openssh-initramfs/releases) or [build your own](#build). Install the package using `dpkg`:
 
 ```sh
-dpkg -i openssh-initramfs_*_all.deb
+apt install ./openssh-initramfs_*_all.deb
 ```
 
 ## Configuration
