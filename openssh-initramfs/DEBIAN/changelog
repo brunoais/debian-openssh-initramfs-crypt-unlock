@@ -1,3 +1,9 @@
+openssh-initramfs (2.0.2) unstable; urgency=low
+
+  * Complete overhaul of the package
+
+ -- Mgsichkar <mgsichkar@gmail.com>  Wed, 13 Aug 2022 20:07:47 +0200
+
 openssh-initramfs (2.0-1) unstable; urgency=low
 
   * Complete overhaul of the package
