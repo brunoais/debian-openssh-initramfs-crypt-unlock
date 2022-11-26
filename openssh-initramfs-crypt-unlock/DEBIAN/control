@@ -1,0 +1,14 @@
+Package: openssh-initramfs-crypt-unlock
+Version: 1.0.0
+Architecture: all
+Maintainer: brunoais <brunoais@gmail.com>
+Depends: bash, busybox | busybox-static, cryptsetup-initramfs, initramfs-tools (>= 0.94), openssh-server, udev
+Recommends: cryptsetup
+Breaks: dropbear-initramfs, openssh-initramfs
+Replaces: dropbear-initramfs, openssh-initramfs
+Section: net
+Priority: optional
+Multi-Arch: foreign
+Description: OpenSSH server running in initramfs for crypt unlocking
+    This package provides an OpenSSH server installed in initramfs for remote unlock of devices in crypttab.
+    It supports unattended unlock and, by default, provides very limited access to initramfs besides unlocking.

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+PREREQ=""
+
+prereqs() {
+	echo "$PREREQ"
+}
+
+case "$1" in
+	prereqs)
+		prereqs
+		exit 0
+	;;
+esac
+
+/usr/share/openssh-initramfs-crypt-unlock/openssh.initramfs.hook

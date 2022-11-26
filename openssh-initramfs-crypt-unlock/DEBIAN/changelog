@@ -1,3 +1,13 @@
+openssh-initramfs-crypt-unlock (1.0.0) unstable; urgency=low
+
+  * Remade and repurposed package. 
+  * Because it's incompatible with the previous package, it was renamed to avoid confusion
+
+ -- Brunoais <brunoais@gmail.com>  20 Nov 2022 20:07:47 +0200
+
+
+-------------- Remake basic works ---------------
+
 openssh-initramfs (2.0.2) unstable; urgency=low
 
   * Complete overhaul of the package

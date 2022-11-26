@@ -21,4 +21,8 @@ log_begin_msg "Stopping OpenSSH"
 
 pid=$(cat /run/sshd.pid)
 ps -eo ppid,pid | sed -nr "s/^\s*$pid\s+([0-9]+)\s*$/\1/p" | xargs -r kill
-kill $pid
+kill "$pid"
+sleep 0.5
+kill -9 "$pid"
+
+log_end_msg

@@ -1,7 +1,10 @@
 #!/usr/bin/dh-exec
 
 debian/usr/share/initramfs-tools/conf-hooks.d/openssh => usr/share/initramfs-tools/conf-hooks.d/openssh
+
 debian/usr/share/initramfs-tools/hooks/openssh => usr/share/initramfs-tools/hooks/openssh
+debian/usr/share/openssh-initramfs-crypt-unlock/openssh.initramfs.hook => /usr/share/openssh-initramfs-crypt-unlock/openssh.initramfs.hook
+
 debian/usr/share/initramfs-tools/scripts/init-premount/openssh => usr/share/initramfs-tools/scripts/init-premount/openssh
 debian/usr/share/initramfs-tools/scripts/init-bottom/openssh => usr/share/initramfs-tools/scripts/init-bottom/openssh
 debian/usr/share/initramfs-tools/scripts/local-bottom/ifdown => usr/share/initramfs-tools/scripts/local-bottom/ifdown

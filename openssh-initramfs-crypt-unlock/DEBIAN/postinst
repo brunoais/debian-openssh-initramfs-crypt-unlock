@@ -1,0 +1,40 @@
+#!/bin/sh
+
+if [ "$1" = 'configure' ]; then
+
+	groupadd openssh-initramfs-crypt-unlock
+	set -e
+
+	cat <<-'EOT'
+		**************
+		openssh-initramfs-crypt-unlock group was created. Don't forget to add users to it. Including youself.
+		Use:
+		usermod -aG openssh-initramfs-crypt-unlock <USERNAME>
+		***************
+
+		openssh-initramfs: Creating server keys for sshd in initramfs
+	EOT
+
+	hostkeys="/etc/openssh-initramfs-crypt-unlock/host_keys.d"
+	mkdir -p "$hostkeys"
+	(
+		set -x
+		[ -e "$hostkeys/ssh_host_ed25519_key" ] || ssh-keygen -t ed25519 -f "$hostkeys/ssh_host_ed25519_key" -q -N ""
+		[ -e "$hostkeys/ssh_host_dsa_key" ] || ssh-keygen -t dsa -f "$hostkeys/ssh_host_dsa_key" -q -N ""
+		[ -e "$hostkeys/ssh_host_ecdsa_key" ] || ssh-keygen -t ecdsa -f "$hostkeys/ssh_host_ecdsa_key" -q -N ""
+		[ -e "$hostkeys/ssh_host_rsa_key" ] || ssh-keygen -t rsa -b 4096 -f "$hostkeys/ssh_host_rsa_key" -q -N ""
+	)
+
+	update-initramfs -u
+	if ! grep -Eq '^(.*\s)?ip=' /proc/cmdline; then
+		cat <<-EOT
+			OpenSSH has been added to the initramfs. Don't forget to check
+			your "ip=" kernel bootparameter to match your desired initramfs
+			ip configuration if you have a fixed ip.
+
+		EOT
+	fi
+fi
+
+#DEBHELPER#
+exit 0

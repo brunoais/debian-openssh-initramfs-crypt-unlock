@@ -1,0 +1,188 @@
+#!/bin/bash
+
+# Separate file because, when running for prereq, it's dash
+
+. /usr/share/initramfs-tools/hook-functions
+
+echoerr () {
+	>&2 echo "$@"
+}
+openssh_warn() {
+	echoerr "openssh: WARNING:" "$@"
+}
+openssh_info() {
+	echoerr "openssh: INFO:" "$@"
+}
+
+
+# For testing purposes. To prevent killing own system
+
+if [ '/' != "$(printf '%c' "$DESTDIR" )" ]; then
+	echoerr "DESTDIR env var is not defined with an absolute path. Current value: $DESTDIR"
+	exit 5
+fi
+
+
+for f in /etc/openssh-initramfs-crypt-unlock/config.d/*.conf; do
+	# If no match happens. Bc nullglob doesn't exist for dash
+	if [ -f "$f" ] && [ -r "$f" ]; then
+		# shellcheck source=/dev/null
+		. "$f"
+	fi
+done
+
+
+mkdir -p "$DESTDIR/etc/"{openssh-initramfs-crypt-unlock,ssh/sshd_config.d};
+
+# Avoid conflict with dropbear if it is installed.
+readarray DROPBEAR_FILES <<< "$( find /usr/share/initramfs-tools/ -name '*dropbear*' )"
+for f in "${DROPBEAR_FILES[@]}"; do
+    if [ -d "$f" ] || [ -f "$f" ]; then
+		openssh_warn "Found '$f'! Uninstall dropbear-initramfs (E.g. \`apt remove dropbear-initramfs\`) first so it doesn't conflict with this openssh-based initramfs implementation"
+		exit 0
+	fi
+done
+
+[ -r /etc/crypttab ] || exit 0
+
+copy_exec /usr/sbin/sshd /sbin
+
+# In absence of PAM, OpenSSH uses getpwnam() from libnss.
+# src.: https://serverfault.com/a/820605
+export -f copy_exec
+LIBC_DIR="$(ldd /usr/sbin/sshd | sed -nr 's#.* => (/lib.*)/libc\.so\.[0-9.-]+ \(0x[[:xdigit:]]+\)$#\1#p')"
+find -L "$LIBC_DIR" -maxdepth 1 -name 'libnss_files.*' -type f | while read -r so; do
+	copy_exec "$so"
+done
+
+cat > "$DESTDIR/etc/nsswitch.conf" << 'NSS'
+passwd: files
+group: files
+NSS
+cat  > "$DESTDIR/etc/group" << 'GROUP'
+root:x:0:
+GROUP
+
+touch "$DESTDIR/etc/passwd"
+
+readarray -d ',' -t AUTHORIZED_USERS <<< "$(getent group openssh-initramfs-crypt-unlock | cut -d: -f4-)"
+
+copied_non_empty_key=
+
+echo "root:*:0:0:root:/:/bin/sh" >> "$DESTDIR/etc/passwd"
+echo "sshd:!:105:65534::/run/sshd:/usr/sbin/nologin" >> "$DESTDIR/etc/passwd"
+
+for username in "${AUTHORIZED_USERS[@]}"; do
+
+	username="$( echo "$username" | tr -d '\n')"
+	if [ -z "$username" ]; then
+		continue
+	fi
+
+	# shellcheck disable=SC2034
+	IFS=: read -r username v2 uid gid v4 u_home u_shell <<< "$(getent passwd "$username")"
+
+	if [[ -s "$u_home/.ssh/initramfs_authorized_keys" ]] || [[ -s "$u_home/.ssh/authorized_keys" ]]; then
+		copied_non_empty_key='y'
+		mkdir -p "$DESTDIR/$u_home/.ssh"
+		echo "$username:*:0:0:user:$u_home:/bin/sh" >> "$DESTDIR/etc/passwd"
+
+		if [[ -s "$u_home/.ssh/initramfs_authorized_keys" ]]; then
+			openssh_info "Adding unlock keys of $username"
+			cp "$u_home/.ssh/initramfs_authorized_keys" "$DESTDIR$u_home/.ssh/authorized_keys"
+		elif [[ -s "$u_home/.ssh/authorized_keys" ]]; then
+			openssh_info "Adding authorized keys of $username"
+			cp "$u_home/.ssh/authorized_keys" "$DESTDIR$u_home/.ssh/authorized_keys"
+		fi
+	else
+		openssh_warn "Couldn't find keys for '$username'. This user cannot login while in initramfs"
+	fi
+done
+
+
+if [ -z "$copied_non_empty_key" ]; then
+	openssh_warn "No authorized keys copied. Remote access to remote unlock won't work!"
+fi
+
+
+# Copy SSH daemon configuration
+
+(
+	shopt -s nullglob
+
+	sshd_config=()
+	# the globs have this order to ensure openssh-initramfs-crypt-unlock files have priority
+	if [ "$COPY_SSHD_CONFIG" = 'y' ]; then
+		sshd_config=( "/etc/ssh/sshd_confi"[g]{,.d} )
+	fi
+	cp -rvpt "$DESTDIR/etc/ssh/" "${sshd_config[@]}" "/etc/openssh-initramfs-crypt-unlock/sshd_confi"[g]{,.d}
+) |& while read -rs line; do
+	openssh_info "$line"
+done
+
+# Ensure sshd_config has, at least, one line
+echo "Include $DESTDIR/etc/ssh/sshd_config.d/*.conf" >> "$DESTDIR/etc/ssh/sshd_config"
+
+if sshdVars="$(sshd -Tf "$DESTDIR/etc/ssh/sshd_config" 2>/dev/null )"; then
+	if <<< "$sshdVars" grep -q 'usepam yes' ; then
+		openssh_warn "UsePAM yes found in sshd_config. It will be disabled for initramfs"
+	fi
+fi
+
+if ! grep -qE '^\s*[^#]?\s*Include\s+/etc/ssh/sshd_config.d/' "$DESTDIR/etc/ssh/sshd_config" ; then
+	openssh_warn "Include for sshd_config.d not found. It is required, so one will be added at the top of the file"
+fi
+
+sed -iE \
+	-e '1i\UsePAM no' \
+	-e '1i\Include /etc/ssh/sshd_config.d/*.conf' \
+	"$DESTDIR/etc/ssh/sshd_config"
+
+sshd -tf "$DESTDIR/etc/ssh/sshd_config"
+case $? in
+	0|1)
+		openssh_info "sshd syntax check: passed"
+		;;
+	255)
+		openssh_warn "sshd syntax check: FAILED. Interrupting initramfs as a precaution"
+		exit 255
+		;;
+	*)
+		r=$?
+		openssh_warn "sshd syntax check: UNKNOWN. Interrupting initramfs as a precaution"
+		exit "$r"
+esac
+
+openssh_info "***"
+openssh_info "sshd will be listening to" "$(sshd -Tf "$DESTDIR/etc/ssh/sshd_config" | grep '^port ')"
+openssh_info "***"
+
+# Remove line used specially for the tests
+sed -ie "\#Include $DESTDIR/etc/ssh/sshd_config.d/\*.conf#d" "$DESTDIR/etc/ssh/sshd_config"
+
+
+cp -rp "/etc/openssh-initramfs-crypt-unlock/" "$DESTDIR/etc/"
+
+# Copy SSH host keys
+host_keys="$(find /etc/openssh-initramfs-crypt-unlock/host_keys.d -name 'ssh_*' 2>/dev/null)"
+if [ -n "$host_keys" ]; then
+	cp -p /etc/openssh-initramfs-crypt-unlock/host_keys.d/* "$DESTDIR/etc/ssh"
+else
+	host_keys="$(find /etc/ssh -name 'ssh_host*key*' 2>/dev/null)"
+	if [ -n "$host_keys" ]; then
+		cp -p /etc/ssh/ssh_host*key* "$DESTDIR/etc/ssh"
+		openssh_warn "No SSH host keys found in /etc/openssh-initramfs-crypt-unlock, will use ssh host keys. THIS IS UNSAFE"
+	else
+		openssh_warn "No SSH host keys found in /etc/openssh-initramfs-crypt-unlock, remote unlocking with cryptroot-unlock via SSH won't work!"
+	fi
+fi
+
+# Copy SSH moduli file
+if [ -e /etc/openssh-initramfs-crypt-unlock/moduli ]; then
+	cp -p "/etc/openssh-initramfs-crypt-unlock/moduli" "$DESTDIR/etc/ssh"
+elif [ -e /etc/ssh/moduli ]; then
+	openssh_warn "No moduli file find in /etc/openssh-initramfs-crypt-unlock. The system moduli /etc/ssh/moduli will be copied into the initramfs."
+	cp -p "/etc/ssh/moduli" "$DESTDIR/etc/ssh"
+else
+	openssh_warn "No moduli file found. If Diffie-Hellman group exchange (diffie-hellman-group*) is used, then OpenSSH will fallback to fixed modulus, which is not recommended."
+fi

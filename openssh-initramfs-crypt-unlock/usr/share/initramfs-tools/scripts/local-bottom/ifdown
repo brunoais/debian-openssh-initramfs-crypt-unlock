@@ -14,9 +14,13 @@ case "$1" in
 esac
 
 IFDOWN="*"
-if [ -e /etc/openssh-initramfs/config ]; then
-    . /etc/openssh-initramfs/config
-fi
+
+for f in /etc/openssh-initramfs-crypt-unlock/config.d/*.conf; do
+    # If no match happens. Bc nullglob doesn't exist for dash
+    if [ -f "$f" ] && [ -r "$f" ]; then
+        . "$f"
+    fi
+done
 
 for IFACE in /sys/class/net/${IFDOWN}; do
     [ -e "$IFACE" ] || continue

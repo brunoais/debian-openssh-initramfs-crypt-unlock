@@ -13,30 +13,28 @@ case "$1" in
     ;;
 esac
 
-[ "$IP" != off -a "$IP" != none -a -x /sbin/sshd ] || exit 0
+[ "$IP" != off ] && [ "$IP" != none ] && [ -x /sbin/sshd ] || exit 0
 
 run_openssh() {
     # always run configure_networking() before openssh; on NFS
     # mounts this has been done already
     [ "$boot" = nfs ] || configure_networking
 
-    if [ -n "$SSH_PORT" ]; then
-        SSH_PORT_ARGS="-p $SSH_PORT"
-    fi
-
     # create privilege separation directory
     mkdir -p /run/sshd
 
-    log_begin_msg "Starting OpenSSH"
+    log_begin_msg "Starting initramfs OpenSSH"
+
+    trap 'exit 0' INT HUP QUIT TERM ALRM USR1
+    trap 'log_end_msg' EXIT
+
     # using exec and keeping openssh in the foreground enables the init-bottom
     # script to kill the remaining ipconfig processes if someone unlocks the
     # rootfs from the console while the network is being configured
-    exec /sbin/sshd -D $SSH_PORT_ARGS $SSH_OPTIONS
+    sleep 3
+    exec /sbin/sshd -D
 }
 
-if [ -e /etc/openssh-initramfs/config ]; then
-    . /etc/openssh-initramfs/config
-fi
 . /scripts/functions
 
 # On NFS mounts, wait until the network is configured.  On local mounts,
