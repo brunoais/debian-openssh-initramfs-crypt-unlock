@@ -55,7 +55,7 @@ There are no dependencies required to build this Debian package. You simply have
 
 ```sh
 # clone the repository
-git clone ttps://github.com/brunoais/debian-openssh-initramfs-crypt-unlock.git
+git clone https://github.com/brunoais/debian-openssh-initramfs-crypt-unlock.git
 
 # build
 cd openssh-initramfs-crypt-unlock
