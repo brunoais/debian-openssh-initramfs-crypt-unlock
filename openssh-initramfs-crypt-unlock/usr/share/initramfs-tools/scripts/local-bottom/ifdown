@@ -28,4 +28,5 @@ for IFACE in /sys/class/net/${IFDOWN}; do
     ip link    set   dev "$IFACE" down
     ip address flush dev "$IFACE"
     ip route   flush dev "$IFACE"
+    rm -vfr /run/netplan/"$IFACE".*
 done
