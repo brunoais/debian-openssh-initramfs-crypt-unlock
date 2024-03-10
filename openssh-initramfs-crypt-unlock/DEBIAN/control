@@ -1,5 +1,5 @@
 Package: openssh-initramfs-crypt-unlock
-Version: 1.0.0
+Version: 1.0.1
 Architecture: all
 Maintainer: brunoais <brunoais@gmail.com>
 Depends: bash, busybox | busybox-static, cryptsetup-initramfs, initramfs-tools (>= 0.94), openssh-server, udev
